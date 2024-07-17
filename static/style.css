@@ -1,0 +1,113 @@
+body {
+  color: #444;
+  background-color: #f7f7f7;
+}
+.wrapper {
+  margin: 0 auto;
+  position: relative;
+  max-width: 1024px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.top_con {
+  background-color: #e6f2eb;
+  padding: 30px 0;
+}
+.top_con > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.top_con .tit {
+  font-size: 28px;
+}
+.top_con .search_box {
+  display: flex;
+  align-items: center;
+  justify-items: center;
+  margin-top: 20px;
+  width: 80%;
+  max-width: 520px;
+  background-color: #fff;
+  height: 50px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0 16px;
+}
+.top_con .search_box input {
+  background-color: none;
+  border: 0 none;
+  flex: 1;
+  padding: 0;
+  height: 30px;
+}
+.top_con .search_box button {
+  display: flex;
+  background: none;
+  padding: 0;
+  margin: 0;
+  border: 0 none;
+  cursor: pointer;
+  margin-left: 8px;
+}
+.top_con .search_box button img {
+  width: 20px;
+}
+
+.bottom_con {
+  margin-top: 50px;
+}
+.bottom_con .search_tit {
+  font-size: 20px;
+  font-weight: bold;
+}
+.bottom_con .search_tit span {
+  color: #03c75a;
+}
+.bottom_con .table_box {
+  background-color: #fff;
+  margin-top: 10px;
+  border-top: 1px solid #999;
+}
+.bottom_con .table_box table {
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+}
+.bottom_con .table_box thead tr {
+  border-bottom: 1px solid #999;
+}
+.bottom_con .table_box thead th {
+  color: #888;
+  padding: 12px;
+  font-weight: bold;
+}
+.bottom_con .table_box tbody tr {
+  border-bottom: 1px solid #ddd;
+}
+.bottom_con .table_box tbody td {
+  padding: 12px 10px;
+}
+.bottom_con .table_box tbody td button {
+  background-color: #eee;
+  color: #666;
+  margin: 0;
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 3px;
+}
+/* 로딩 인디케이터 스타일 */
+.loading-indicator {
+  display: none; /* 처음에는 숨김 */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 15px;
+  border-radius: 5px;
+  z-index: 1000; /* 화면 최상위에 표시 */
+}

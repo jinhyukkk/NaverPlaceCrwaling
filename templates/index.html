@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link href="../static/reset.css" rel="stylesheet" />
+    <link href="../static/style.css" rel="stylesheet" />
+  </head>
+  <body>
+  <div class="loading-indicator" id="loadingIndicator">Loading...</div>
+    <div class="top_con">
+      <div class="wrapper">
+        <p class="tit">포털 사이트 리뷰</p>
+        <div class="search_box">
+            <input type="text" id="searchText" placeholder="원하는 매장 검색해주세요." onkeypress="handleEnterKeyPress(event)"/>
+            <button type="button" id="searchBtn"><img src="../static/search_icon.svg"  alt=""/></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom_con wrapper">
+      <p class="search_tit"><span class="search_text" id="searchTitle"></span> 검색결과</p>
+      <div class="table_box">
+        <table>
+          <thead>
+            <tr>
+              <th>가게명</th>
+              <th>별점</th>
+              <th>리뷰수</th>
+              <th>버튼</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!--
+            <tr>
+              <td>가게명들어가는자리</td>
+              <td>5점</td>
+              <td>123</td>
+              <td>
+                <button type="button">저장</button>
+              </td>
+            </tr>
+            -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <script>
+      // 엔터 키를 눌렀을 때 검색 버튼 클릭 이벤트 처리
+      function handleEnterKeyPress(event) {
+        if (event.key === 'Enter') {
+          // 검색 버튼을 클릭
+          document.getElementById('searchBtn').click();
+        }
+      }
+
+      function setTableData(data) {
+        // 테이블에 데이터 추가하기
+        var tableBody = document.getElementById('tableBody');
+        data.forEach(function(item) {
+          var row = tableBody.insertRow();
+          var nameCell = row.insertCell(0);
+          var starsScoreCell = row.insertCell(1);
+          var reviewNumberCell = row.insertCell(2);
+          var actionsCell = row.insertCell(3);
+
+          // idCell.textContent = item.id;
+          nameCell.textContent = item.name;
+          starsScoreCell.textContent = item.stars_score;
+          reviewNumberCell.textContent = item.review_number;
+
+          // 저장 버튼 추가
+          var saveButton = document.createElement('button');
+          saveButton.type = 'button';
+          saveButton.textContent = '저장';
+          saveButton.value = item.id; // 버튼의 값으로 id 설정
+          saveButton.addEventListener('click', function() {
+            // 저장 버튼 클릭 시 실행할 코드
+            var id = this.value; // 현재 버튼의 값 (id)
+            alert('저장 버튼 클릭 - ID: ' + id); // 예시로 alert로 id 출력
+            // 여기에 저장 동작을 구현할 수 있습니다.
+          });
+
+          actionsCell.appendChild(saveButton);
+        });
+      }
+
+      $(document).ready(function(){
+        $("#searchBtn").click(function(){
+          $('#tableBody').empty();
+          // 로딩 인디케이터 표시
+          loadingIndicator.style.display = 'block';
+          $.ajax({
+            url: "/run-python",
+            type: "POST",
+            contentType: 'application/json',
+            data: JSON.stringify({ searchText: $("#searchText").val() }),
+            success: function(response){
+              console.log(response);
+
+              $("#searchTitle").text($("#searchText").val());
+              console.log(response.result.length)
+              if ($.isEmptyObject(response.result)) {
+                alert('검색 결과가 없습니다.');
+              } else {
+                setTableData(response.result);
+              }
+              // 로딩 인디케이터 숨김
+              loadingIndicator.style.display = 'none';
+            },
+            error: function(error){
+              console.log("Error:", error);
+              // 로딩 인디케이터 숨김
+              loadingIndicator.style.display = 'none';
+            }
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

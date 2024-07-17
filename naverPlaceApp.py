@@ -1,4 +1,11 @@
+# pip3 install Flask
+# pip3 install selenium
+# pip3 install webdriver_manager
+# pip3 install beautifulsoup4
+
+from flask import Flask, request, jsonify, render_template
 from selenium import webdriver
+from selenium.common import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.wait import WebDriverWait
@@ -6,6 +13,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import time
+
+app = Flask(__name__)
+# 메인 페이지 라우팅
+@app.route('/')
+def index():
+    return render_template('/index.html')
+
 
 def getPlaceCode(marker_elements):
     marker_dict = {}
@@ -53,12 +67,16 @@ def getContents(driver, scroll_container):
         # 별점
         stars_score_target = li.find('span', class_='place_blind', string='별점')
         stars_score = stars_score_target.find_next_sibling(string=True).strip() if stars_score_target else ""
+        if stars_score == "":
+            stars_score = "-"
         item_dict['stars_score'] = stars_score
 
         # 리뷰 숫자를 포함하는 span 요소 찾기
         review_target = li.find('span', string=lambda text: text and text.strip().startswith('리뷰'))
         review_text = review_target.text.strip() if review_target else ""
         review_count = ''.join(filter(str.isdigit, review_text))
+        if review_count == "":
+            review_count = "-"
         item_dict['review_number'] = review_count
 
         # 결과 딕셔너리를 결과 리스트에 추가
@@ -67,60 +85,73 @@ def getContents(driver, scroll_container):
     return results
 
 # 네이버 지도에서 음식점을 검색하고 리뷰를 스크래핑하는 함수
+@app.route('/scrapeNaverPlace', methods=['POST'])
 def scrapeNaverPlace(search_query):
+    # search_query = request.json.get('searchText')
     # Selenium 웹드라이버 설정
     options = webdriver.ChromeOptions()
-    # options.add_argument('--headless')  # 브라우저 창을 띄우지 않음
+    options.add_argument('--headless')  # 브라우저 창을 띄우지 않음
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     # 네이버 지도 페이지 열기
     driver.get("https://map.naver.com/p/search/" + search_query)
-    # time.sleep(2)
 
-    WebDriverWait(driver, 3).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, '[id^="salt-search-marker"]'))
-    )
-    page_source = driver.page_source
-    soup = BeautifulSoup(page_source, 'html.parser')
-    marker_elements = soup.select('[id^="salt-search-marker"]')
+    try:
+        # salt-search-marker 요소가 나타날 때까지 기다림 (최대 3초)
+        WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '[id^="salt-search-marker"]'))
+        )
+    except TimeoutException:
+        return "Timeout"
+        # 에러 발생 시 대응할 코드
+    except NoSuchElementException:
+        return "NoSuchElementException"
+    finally:
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+        marker_elements = soup.select('[id^="salt-search-marker"]')
+        if not marker_elements:
+            return {}
+        # 음식점 코드와 이름 수집
+        marker_dict = getPlaceCode(marker_elements)
 
-    # 음식점 코드와 이름 수집
-    marker_dict = getPlaceCode(marker_elements)
+        search_iframe = driver.find_element(By.ID, 'searchIframe')
+        driver.switch_to.frame(search_iframe)
 
-    search_iframe = driver.find_element(By.ID, 'searchIframe')
-    driver.switch_to.frame(search_iframe)
+        # id가 '_pcmap_list_scroll_container'인 div 태그 찾기
+        scroll_container = driver.find_element(By.ID, '_pcmap_list_scroll_container')
 
-    # id가 '_pcmap_list_scroll_container'인 div 태그 찾기
-    scroll_container = driver.find_element(By.ID, '_pcmap_list_scroll_container')
+        # 음식점 리뷰와 별점 수집
+        placeContents = getContents(driver, scroll_container)
 
-    # 음식점 리뷰와 별점 수집
-    placeContents = getContents(driver, scroll_container)
+        # 드라이버 종료
+        driver.quit()
 
-    # 드라이버 종료
-    driver.quit()
+        merged_list = []
+        for marker_key, marker_value in marker_dict.items():
+            for item in placeContents:
+                if item['name'] == marker_value:
+                    # 일치하는 항목을 찾으면 병합
+                    merged_item = {'id': marker_key}
+                    merged_item.update(item)
+                    merged_list.append(merged_item)
+                    break
 
-    merged_list = []
-    for marker_key, marker_value in marker_dict.items():
-        for item in placeContents:
-            if item['name'] == marker_value:
-                # 일치하는 항목을 찾으면 병합
-                merged_item = {'id': marker_key}
-                merged_item.update(item)
-                merged_list.append(merged_item)
-                break
+        # 결과를 JSON 형태로 반환
+        return merged_list
 
-    return merged_list
+# 버튼 클릭 시 실행되는 라우트
+@app.route('/run-python', methods=['POST'])
+def run_python():
+    if request.headers['Content-Type'] == 'application/json':
+        search_text = request.json.get('searchText')
+        result = scrapeNaverPlace(search_text)
+        # JSON 데이터를 사용하여 원하는 작업을 수행
+        return jsonify(result=result)
+    else:
+        return jsonify(error='Did not attempt to load JSON data because the request Content-Type was not application/json.'), 400
 
-# 측정 시작 시간 기록
-start_time = time.time()
-# 함수 사용 예제
-search_query = "용산맛집"
-results = scrapeNaverPlace(search_query)
-print(results)
-# 측정 종료 시간 기록
-end_time = time.time()
-# 실행 시간 계산
-execution_time = end_time - start_time
-print(f"실행 시간: {execution_time}초")
+if __name__ == '__main__':
+    app.run(debug=True)
