@@ -2,6 +2,7 @@
 # pip3 install selenium
 # pip3 install webdriver_manager
 # pip3 install beautifulsoup4
+import re
 
 from flask import Flask, request, jsonify, render_template
 from selenium import webdriver
@@ -71,12 +72,25 @@ def getContents(driver, scroll_container):
             stars_score = "-"
         item_dict['stars_score'] = stars_score
 
-        # 리뷰 숫자를 포함하는 span 요소 찾기
-        review_target = li.find('span', string=lambda text: text and text.strip().startswith('리뷰'))
-        review_text = review_target.text.strip() if review_target else ""
-        review_count = ''.join(filter(str.isdigit, review_text))
-        if review_count == "":
-            review_count = "-"
+        review_text = ""
+        for span in li.find_all('span'):
+            # span의 contents를 확인하여 '리뷰'를 포함하는지 검사
+            span_text = ''.join([str(content) for content in span.contents])
+            if '리뷰 ' in span_text:
+                review_text = span.get_text(strip=True)
+                break
+                # print(span.get_text(strip=True))
+        # review_target = li.find('span', string=lambda text: text and text.strip().startswith('리뷰 '))
+        # review_text = review_target.text.strip() if review_target else ""
+        # review_count = ''.join(filter(str.isdigit, review_text))
+        # 정규 표현식을 사용하여 숫자와 그 뒤의 '+'를 추출
+        match = re.search(r'\d+\+?', review_text)
+        review_count = "-"
+        if match:
+            review_count = match.group()
+        print(review_count)
+        # if review_count == "":
+        #     review_count = "-"
         item_dict['review_number'] = review_count
 
         # 결과 딕셔너리를 결과 리스트에 추가
@@ -90,7 +104,7 @@ def scrapeNaverPlace(search_query):
     # search_query = request.json.get('searchText')
     # Selenium 웹드라이버 설정
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  # 브라우저 창을 띄우지 않음
+    # options.add_argument('--headless')  # 브라우저 창을 띄우지 않음
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -100,7 +114,7 @@ def scrapeNaverPlace(search_query):
 
     try:
         # salt-search-marker 요소가 나타날 때까지 기다림 (최대 3초)
-        WebDriverWait(driver, 3).until(
+        WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, '[id^="salt-search-marker"]'))
         )
     except TimeoutException:
@@ -113,25 +127,29 @@ def scrapeNaverPlace(search_query):
         soup = BeautifulSoup(page_source, 'html.parser')
         marker_elements = soup.select('[id^="salt-search-marker"]')
         if not marker_elements:
+            # 드라이버 종료
+            driver.quit()
             return {}
         # 음식점 코드와 이름 수집
         marker_dict = getPlaceCode(marker_elements)
 
-        search_iframe = driver.find_element(By.ID, 'searchIframe')
-        driver.switch_to.frame(search_iframe)
+        try:
+            search_iframe = driver.find_element(By.ID, 'searchIframe')
+            driver.switch_to.frame(search_iframe)
 
-        # id가 '_pcmap_list_scroll_container'인 div 태그 찾기
-        scroll_container = driver.find_element(By.ID, '_pcmap_list_scroll_container')
+            # id가 '_pcmap_list_scroll_container'인 div 태그 찾기
+            scroll_container = driver.find_element(By.ID, '_pcmap_list_scroll_container')
 
-        # 음식점 리뷰와 별점 수집
-        placeContents = getContents(driver, scroll_container)
+            # 음식점 리뷰와 별점 수집
+            placeContents = getContents(driver, scroll_container)
 
-        # 드라이버 종료
-        driver.quit()
+        finally:
+            # 드라이버 종료
+            driver.quit()
 
         merged_list = []
-        for marker_key, marker_value in marker_dict.items():
-            for item in placeContents:
+        for item in placeContents:
+            for marker_key, marker_value in marker_dict.items():
                 if item['name'] == marker_value:
                     # 일치하는 항목을 찾으면 병합
                     merged_item = {'id': marker_key}
